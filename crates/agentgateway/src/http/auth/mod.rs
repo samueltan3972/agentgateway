@@ -19,8 +19,8 @@ pub use jws::JwtSigningAlg;
 pub(crate) use jws::signing_alg_from_proto;
 pub use jwt_sign::JwtSignAuth;
 pub use oauth::{
-	CrossAppAccessAuth, OAuthClientAuth, OAuthClientAuthMethod, OAuthGrantType,
-	OAuthTokenExchangeAuth, PrivateKeyJwt,
+	CrossAppAccessAuth, OAuthAuthorizationCodeAuth, OAuthClientAuth, OAuthClientAuthMethod,
+	OAuthGrantType, OAuthTokenExchangeAuth, PrivateKeyJwt,
 };
 use secrecy::{ExposeSecret, SecretString};
 
@@ -105,6 +105,10 @@ pub enum BackendAuthKind {
 	/// Use Cross App Access (Identity Assertion / ID-JAG) to obtain a backend access token.
 	#[serde(rename = "crossAppAccess")]
 	CrossAppAccess(Box<CrossAppAccessAuth>),
+	/// Act as the OAuth client of the backend, using tokens from `agentgateway oauth-login`
+	/// and refreshing them before they expire.
+	#[serde(rename = "oauthAuthorizationCode")]
+	OAuthAuthorizationCode(Box<OAuthAuthorizationCodeAuth>),
 	/// Configuration that could not be loaded. Requests using it are rejected.
 	Invalid {
 		/// The configured auth kind, such as `oauthTokenExchange`.
@@ -384,6 +388,12 @@ async fn apply_backend_auth_kind(
 		},
 		BackendAuthKind::CrossAppAccess(auth) => {
 			let explicit = oauth::apply_identity_assertion(&backend_info.inputs, auth, req).await?;
+			req
+				.extensions_mut()
+				.insert(AppliedBackendAuthLocation { explicit });
+		},
+		BackendAuthKind::OAuthAuthorizationCode(auth) => {
+			let explicit = oauth::authorization_code::apply(&backend_info.inputs, auth, req).await?;
 			req
 				.extensions_mut()
 				.insert(AppliedBackendAuthLocation { explicit });

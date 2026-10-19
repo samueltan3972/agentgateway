@@ -7092,6 +7092,17 @@ These types are used by many fields. Fields of these types link here instead of 
 |`<BackendPolicies>.backendAuth.crossAppAccess.cache`|object|Response cache configuration. Defaults to an in-memory cache with 8192 entries and a 300s<br>TTL when the token endpoint omits `expires_in`. Set `maxEntries` to 0 to disable.|
 |`<BackendPolicies>.backendAuth.crossAppAccess.cache.maxEntries`|integer|Maximum number of token exchange responses to keep in the cache. Set to 0 to disable.|
 |`<BackendPolicies>.backendAuth.crossAppAccess.cache.defaultTtl`|string|TTL used when the token endpoint omits `expires_in`. Defaults to 300s.|
+|`<BackendPolicies>.backendAuth.oauthAuthorizationCode`|object|Act as the OAuth client of the backend, using tokens from `agentgateway oauth-login`<br>and refreshing them before they expire.|
+|`<BackendPolicies>.backendAuth.oauthAuthorizationCode.tokenFile`|string|Token file written by `agentgateway oauth-login`. It holds the client registration and<br>tokens, and is rewritten when the access token is refreshed. Keep it private.|
+|`<BackendPolicies>.backendAuth.oauthAuthorizationCode.authorizationLocation`|object|Where to place the access token in the backend request. Defaults to the<br>Authorization header with a "Bearer " prefix.<br>Exactly one of header, queryParameter, cookie, or expression may be set.|
+|`<BackendPolicies>.backendAuth.oauthAuthorizationCode.authorizationLocation.header`|object|Read the credential from an HTTP header.|
+|`<BackendPolicies>.backendAuth.oauthAuthorizationCode.authorizationLocation.header.name`|string|Header name containing the credential.|
+|`<BackendPolicies>.backendAuth.oauthAuthorizationCode.authorizationLocation.header.prefix`|string|Prefix to remove from the header value before validation, such as `Bearer ` or `Basic `.|
+|`<BackendPolicies>.backendAuth.oauthAuthorizationCode.authorizationLocation.queryParameter`|object|Read the credential from a URL query parameter.|
+|`<BackendPolicies>.backendAuth.oauthAuthorizationCode.authorizationLocation.queryParameter.name`|string|Query parameter name containing the credential.|
+|`<BackendPolicies>.backendAuth.oauthAuthorizationCode.authorizationLocation.cookie`|object|Read the credential from a request cookie.|
+|`<BackendPolicies>.backendAuth.oauthAuthorizationCode.authorizationLocation.cookie.name`|string|Cookie name containing the credential.|
+|`<BackendPolicies>.backendAuth.oauthAuthorizationCode.authorizationLocation.expression`|string|Read the credential from a CEL expression evaluated against the incoming request.<br>CEL expression that returns the credential string. This location can extract credentials but cannot insert them.|
 |`<BackendPolicies>.backendAuth.credentials`|[]object||
 |`<BackendPolicies>.backendAuth.credentials[].location`|object|Where the credential is inserted on the backend request.<br>Exactly one of header, queryParameter, cookie, or expression may be set.|
 |`<BackendPolicies>.backendAuth.credentials[].location.header`|object|Read the credential from an HTTP header.|
@@ -7494,6 +7505,17 @@ These types are used by many fields. Fields of these types link here instead of 
 |`<BackendAuth>.crossAppAccess.cache`|object|Response cache configuration. Defaults to an in-memory cache with 8192 entries and a 300s<br>TTL when the token endpoint omits `expires_in`. Set `maxEntries` to 0 to disable.|
 |`<BackendAuth>.crossAppAccess.cache.maxEntries`|integer|Maximum number of token exchange responses to keep in the cache. Set to 0 to disable.|
 |`<BackendAuth>.crossAppAccess.cache.defaultTtl`|string|TTL used when the token endpoint omits `expires_in`. Defaults to 300s.|
+|`<BackendAuth>.oauthAuthorizationCode`|object|Act as the OAuth client of the backend, using tokens from `agentgateway oauth-login`<br>and refreshing them before they expire.|
+|`<BackendAuth>.oauthAuthorizationCode.tokenFile`|string|Token file written by `agentgateway oauth-login`. It holds the client registration and<br>tokens, and is rewritten when the access token is refreshed. Keep it private.|
+|`<BackendAuth>.oauthAuthorizationCode.authorizationLocation`|object|Where to place the access token in the backend request. Defaults to the<br>Authorization header with a "Bearer " prefix.<br>Exactly one of header, queryParameter, cookie, or expression may be set.|
+|`<BackendAuth>.oauthAuthorizationCode.authorizationLocation.header`|object|Read the credential from an HTTP header.|
+|`<BackendAuth>.oauthAuthorizationCode.authorizationLocation.header.name`|string|Header name containing the credential.|
+|`<BackendAuth>.oauthAuthorizationCode.authorizationLocation.header.prefix`|string|Prefix to remove from the header value before validation, such as `Bearer ` or `Basic `.|
+|`<BackendAuth>.oauthAuthorizationCode.authorizationLocation.queryParameter`|object|Read the credential from a URL query parameter.|
+|`<BackendAuth>.oauthAuthorizationCode.authorizationLocation.queryParameter.name`|string|Query parameter name containing the credential.|
+|`<BackendAuth>.oauthAuthorizationCode.authorizationLocation.cookie`|object|Read the credential from a request cookie.|
+|`<BackendAuth>.oauthAuthorizationCode.authorizationLocation.cookie.name`|string|Cookie name containing the credential.|
+|`<BackendAuth>.oauthAuthorizationCode.authorizationLocation.expression`|string|Read the credential from a CEL expression evaluated against the incoming request.<br>CEL expression that returns the credential string. This location can extract credentials but cannot insert them.|
 |`<BackendAuth>.credentials`|[]object||
 |`<BackendAuth>.credentials[].location`|object|Where the credential is inserted on the backend request.<br>Exactly one of header, queryParameter, cookie, or expression may be set.|
 |`<BackendAuth>.credentials[].location.header`|object|Read the credential from an HTTP header.|
@@ -7769,6 +7791,17 @@ These types are used by many fields. Fields of these types link here instead of 
 |`<Guardrails>.request[].webhook.target.policies.backendAuth.crossAppAccess.cache`|object|Response cache configuration. Defaults to an in-memory cache with 8192 entries and a 300s<br>TTL when the token endpoint omits `expires_in`. Set `maxEntries` to 0 to disable.|
 |`<Guardrails>.request[].webhook.target.policies.backendAuth.crossAppAccess.cache.maxEntries`|integer|Maximum number of token exchange responses to keep in the cache. Set to 0 to disable.|
 |`<Guardrails>.request[].webhook.target.policies.backendAuth.crossAppAccess.cache.defaultTtl`|string|TTL used when the token endpoint omits `expires_in`. Defaults to 300s.|
+|`<Guardrails>.request[].webhook.target.policies.backendAuth.oauthAuthorizationCode`|object|Act as the OAuth client of the backend, using tokens from `agentgateway oauth-login`<br>and refreshing them before they expire.|
+|`<Guardrails>.request[].webhook.target.policies.backendAuth.oauthAuthorizationCode.tokenFile`|string|Token file written by `agentgateway oauth-login`. It holds the client registration and<br>tokens, and is rewritten when the access token is refreshed. Keep it private.|
+|`<Guardrails>.request[].webhook.target.policies.backendAuth.oauthAuthorizationCode.authorizationLocation`|object|Where to place the access token in the backend request. Defaults to the<br>Authorization header with a "Bearer " prefix.<br>Exactly one of header, queryParameter, cookie, or expression may be set.|
+|`<Guardrails>.request[].webhook.target.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.header`|object|Read the credential from an HTTP header.|
+|`<Guardrails>.request[].webhook.target.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.header.name`|string|Header name containing the credential.|
+|`<Guardrails>.request[].webhook.target.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.header.prefix`|string|Prefix to remove from the header value before validation, such as `Bearer ` or `Basic `.|
+|`<Guardrails>.request[].webhook.target.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.queryParameter`|object|Read the credential from a URL query parameter.|
+|`<Guardrails>.request[].webhook.target.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.queryParameter.name`|string|Query parameter name containing the credential.|
+|`<Guardrails>.request[].webhook.target.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.cookie`|object|Read the credential from a request cookie.|
+|`<Guardrails>.request[].webhook.target.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.cookie.name`|string|Cookie name containing the credential.|
+|`<Guardrails>.request[].webhook.target.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.expression`|string|Read the credential from a CEL expression evaluated against the incoming request.<br>CEL expression that returns the credential string. This location can extract credentials but cannot insert them.|
 |`<Guardrails>.request[].webhook.target.policies.backendAuth.credentials`|[]object||
 |`<Guardrails>.request[].webhook.target.policies.backendAuth.credentials[].location`|object|Where the credential is inserted on the backend request.<br>Exactly one of header, queryParameter, cookie, or expression may be set.|
 |`<Guardrails>.request[].webhook.target.policies.backendAuth.credentials[].location.header`|object|Read the credential from an HTTP header.|
@@ -8057,6 +8090,17 @@ These types are used by many fields. Fields of these types link here instead of 
 |`<Guardrails>.request[].openAIModeration.policies.backendAuth.crossAppAccess.cache`|object|Response cache configuration. Defaults to an in-memory cache with 8192 entries and a 300s<br>TTL when the token endpoint omits `expires_in`. Set `maxEntries` to 0 to disable.|
 |`<Guardrails>.request[].openAIModeration.policies.backendAuth.crossAppAccess.cache.maxEntries`|integer|Maximum number of token exchange responses to keep in the cache. Set to 0 to disable.|
 |`<Guardrails>.request[].openAIModeration.policies.backendAuth.crossAppAccess.cache.defaultTtl`|string|TTL used when the token endpoint omits `expires_in`. Defaults to 300s.|
+|`<Guardrails>.request[].openAIModeration.policies.backendAuth.oauthAuthorizationCode`|object|Act as the OAuth client of the backend, using tokens from `agentgateway oauth-login`<br>and refreshing them before they expire.|
+|`<Guardrails>.request[].openAIModeration.policies.backendAuth.oauthAuthorizationCode.tokenFile`|string|Token file written by `agentgateway oauth-login`. It holds the client registration and<br>tokens, and is rewritten when the access token is refreshed. Keep it private.|
+|`<Guardrails>.request[].openAIModeration.policies.backendAuth.oauthAuthorizationCode.authorizationLocation`|object|Where to place the access token in the backend request. Defaults to the<br>Authorization header with a "Bearer " prefix.<br>Exactly one of header, queryParameter, cookie, or expression may be set.|
+|`<Guardrails>.request[].openAIModeration.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.header`|object|Read the credential from an HTTP header.|
+|`<Guardrails>.request[].openAIModeration.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.header.name`|string|Header name containing the credential.|
+|`<Guardrails>.request[].openAIModeration.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.header.prefix`|string|Prefix to remove from the header value before validation, such as `Bearer ` or `Basic `.|
+|`<Guardrails>.request[].openAIModeration.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.queryParameter`|object|Read the credential from a URL query parameter.|
+|`<Guardrails>.request[].openAIModeration.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.queryParameter.name`|string|Query parameter name containing the credential.|
+|`<Guardrails>.request[].openAIModeration.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.cookie`|object|Read the credential from a request cookie.|
+|`<Guardrails>.request[].openAIModeration.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.cookie.name`|string|Cookie name containing the credential.|
+|`<Guardrails>.request[].openAIModeration.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.expression`|string|Read the credential from a CEL expression evaluated against the incoming request.<br>CEL expression that returns the credential string. This location can extract credentials but cannot insert them.|
 |`<Guardrails>.request[].openAIModeration.policies.backendAuth.credentials`|[]object||
 |`<Guardrails>.request[].openAIModeration.policies.backendAuth.credentials[].location`|object|Where the credential is inserted on the backend request.<br>Exactly one of header, queryParameter, cookie, or expression may be set.|
 |`<Guardrails>.request[].openAIModeration.policies.backendAuth.credentials[].location.header`|object|Read the credential from an HTTP header.|
@@ -8339,6 +8383,17 @@ These types are used by many fields. Fields of these types link here instead of 
 |`<Guardrails>.request[].bedrockGuardrails.policies.backendAuth.crossAppAccess.cache`|object|Response cache configuration. Defaults to an in-memory cache with 8192 entries and a 300s<br>TTL when the token endpoint omits `expires_in`. Set `maxEntries` to 0 to disable.|
 |`<Guardrails>.request[].bedrockGuardrails.policies.backendAuth.crossAppAccess.cache.maxEntries`|integer|Maximum number of token exchange responses to keep in the cache. Set to 0 to disable.|
 |`<Guardrails>.request[].bedrockGuardrails.policies.backendAuth.crossAppAccess.cache.defaultTtl`|string|TTL used when the token endpoint omits `expires_in`. Defaults to 300s.|
+|`<Guardrails>.request[].bedrockGuardrails.policies.backendAuth.oauthAuthorizationCode`|object|Act as the OAuth client of the backend, using tokens from `agentgateway oauth-login`<br>and refreshing them before they expire.|
+|`<Guardrails>.request[].bedrockGuardrails.policies.backendAuth.oauthAuthorizationCode.tokenFile`|string|Token file written by `agentgateway oauth-login`. It holds the client registration and<br>tokens, and is rewritten when the access token is refreshed. Keep it private.|
+|`<Guardrails>.request[].bedrockGuardrails.policies.backendAuth.oauthAuthorizationCode.authorizationLocation`|object|Where to place the access token in the backend request. Defaults to the<br>Authorization header with a "Bearer " prefix.<br>Exactly one of header, queryParameter, cookie, or expression may be set.|
+|`<Guardrails>.request[].bedrockGuardrails.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.header`|object|Read the credential from an HTTP header.|
+|`<Guardrails>.request[].bedrockGuardrails.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.header.name`|string|Header name containing the credential.|
+|`<Guardrails>.request[].bedrockGuardrails.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.header.prefix`|string|Prefix to remove from the header value before validation, such as `Bearer ` or `Basic `.|
+|`<Guardrails>.request[].bedrockGuardrails.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.queryParameter`|object|Read the credential from a URL query parameter.|
+|`<Guardrails>.request[].bedrockGuardrails.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.queryParameter.name`|string|Query parameter name containing the credential.|
+|`<Guardrails>.request[].bedrockGuardrails.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.cookie`|object|Read the credential from a request cookie.|
+|`<Guardrails>.request[].bedrockGuardrails.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.cookie.name`|string|Cookie name containing the credential.|
+|`<Guardrails>.request[].bedrockGuardrails.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.expression`|string|Read the credential from a CEL expression evaluated against the incoming request.<br>CEL expression that returns the credential string. This location can extract credentials but cannot insert them.|
 |`<Guardrails>.request[].bedrockGuardrails.policies.backendAuth.credentials`|[]object||
 |`<Guardrails>.request[].bedrockGuardrails.policies.backendAuth.credentials[].location`|object|Where the credential is inserted on the backend request.<br>Exactly one of header, queryParameter, cookie, or expression may be set.|
 |`<Guardrails>.request[].bedrockGuardrails.policies.backendAuth.credentials[].location.header`|object|Read the credential from an HTTP header.|
@@ -8621,6 +8676,17 @@ These types are used by many fields. Fields of these types link here instead of 
 |`<Guardrails>.request[].googleModelArmor.policies.backendAuth.crossAppAccess.cache`|object|Response cache configuration. Defaults to an in-memory cache with 8192 entries and a 300s<br>TTL when the token endpoint omits `expires_in`. Set `maxEntries` to 0 to disable.|
 |`<Guardrails>.request[].googleModelArmor.policies.backendAuth.crossAppAccess.cache.maxEntries`|integer|Maximum number of token exchange responses to keep in the cache. Set to 0 to disable.|
 |`<Guardrails>.request[].googleModelArmor.policies.backendAuth.crossAppAccess.cache.defaultTtl`|string|TTL used when the token endpoint omits `expires_in`. Defaults to 300s.|
+|`<Guardrails>.request[].googleModelArmor.policies.backendAuth.oauthAuthorizationCode`|object|Act as the OAuth client of the backend, using tokens from `agentgateway oauth-login`<br>and refreshing them before they expire.|
+|`<Guardrails>.request[].googleModelArmor.policies.backendAuth.oauthAuthorizationCode.tokenFile`|string|Token file written by `agentgateway oauth-login`. It holds the client registration and<br>tokens, and is rewritten when the access token is refreshed. Keep it private.|
+|`<Guardrails>.request[].googleModelArmor.policies.backendAuth.oauthAuthorizationCode.authorizationLocation`|object|Where to place the access token in the backend request. Defaults to the<br>Authorization header with a "Bearer " prefix.<br>Exactly one of header, queryParameter, cookie, or expression may be set.|
+|`<Guardrails>.request[].googleModelArmor.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.header`|object|Read the credential from an HTTP header.|
+|`<Guardrails>.request[].googleModelArmor.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.header.name`|string|Header name containing the credential.|
+|`<Guardrails>.request[].googleModelArmor.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.header.prefix`|string|Prefix to remove from the header value before validation, such as `Bearer ` or `Basic `.|
+|`<Guardrails>.request[].googleModelArmor.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.queryParameter`|object|Read the credential from a URL query parameter.|
+|`<Guardrails>.request[].googleModelArmor.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.queryParameter.name`|string|Query parameter name containing the credential.|
+|`<Guardrails>.request[].googleModelArmor.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.cookie`|object|Read the credential from a request cookie.|
+|`<Guardrails>.request[].googleModelArmor.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.cookie.name`|string|Cookie name containing the credential.|
+|`<Guardrails>.request[].googleModelArmor.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.expression`|string|Read the credential from a CEL expression evaluated against the incoming request.<br>CEL expression that returns the credential string. This location can extract credentials but cannot insert them.|
 |`<Guardrails>.request[].googleModelArmor.policies.backendAuth.credentials`|[]object||
 |`<Guardrails>.request[].googleModelArmor.policies.backendAuth.credentials[].location`|object|Where the credential is inserted on the backend request.<br>Exactly one of header, queryParameter, cookie, or expression may be set.|
 |`<Guardrails>.request[].googleModelArmor.policies.backendAuth.credentials[].location.header`|object|Read the credential from an HTTP header.|
@@ -8901,6 +8967,17 @@ These types are used by many fields. Fields of these types link here instead of 
 |`<Guardrails>.request[].azureContentSafety.policies.backendAuth.crossAppAccess.cache`|object|Response cache configuration. Defaults to an in-memory cache with 8192 entries and a 300s<br>TTL when the token endpoint omits `expires_in`. Set `maxEntries` to 0 to disable.|
 |`<Guardrails>.request[].azureContentSafety.policies.backendAuth.crossAppAccess.cache.maxEntries`|integer|Maximum number of token exchange responses to keep in the cache. Set to 0 to disable.|
 |`<Guardrails>.request[].azureContentSafety.policies.backendAuth.crossAppAccess.cache.defaultTtl`|string|TTL used when the token endpoint omits `expires_in`. Defaults to 300s.|
+|`<Guardrails>.request[].azureContentSafety.policies.backendAuth.oauthAuthorizationCode`|object|Act as the OAuth client of the backend, using tokens from `agentgateway oauth-login`<br>and refreshing them before they expire.|
+|`<Guardrails>.request[].azureContentSafety.policies.backendAuth.oauthAuthorizationCode.tokenFile`|string|Token file written by `agentgateway oauth-login`. It holds the client registration and<br>tokens, and is rewritten when the access token is refreshed. Keep it private.|
+|`<Guardrails>.request[].azureContentSafety.policies.backendAuth.oauthAuthorizationCode.authorizationLocation`|object|Where to place the access token in the backend request. Defaults to the<br>Authorization header with a "Bearer " prefix.<br>Exactly one of header, queryParameter, cookie, or expression may be set.|
+|`<Guardrails>.request[].azureContentSafety.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.header`|object|Read the credential from an HTTP header.|
+|`<Guardrails>.request[].azureContentSafety.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.header.name`|string|Header name containing the credential.|
+|`<Guardrails>.request[].azureContentSafety.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.header.prefix`|string|Prefix to remove from the header value before validation, such as `Bearer ` or `Basic `.|
+|`<Guardrails>.request[].azureContentSafety.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.queryParameter`|object|Read the credential from a URL query parameter.|
+|`<Guardrails>.request[].azureContentSafety.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.queryParameter.name`|string|Query parameter name containing the credential.|
+|`<Guardrails>.request[].azureContentSafety.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.cookie`|object|Read the credential from a request cookie.|
+|`<Guardrails>.request[].azureContentSafety.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.cookie.name`|string|Cookie name containing the credential.|
+|`<Guardrails>.request[].azureContentSafety.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.expression`|string|Read the credential from a CEL expression evaluated against the incoming request.<br>CEL expression that returns the credential string. This location can extract credentials but cannot insert them.|
 |`<Guardrails>.request[].azureContentSafety.policies.backendAuth.credentials`|[]object||
 |`<Guardrails>.request[].azureContentSafety.policies.backendAuth.credentials[].location`|object|Where the credential is inserted on the backend request.<br>Exactly one of header, queryParameter, cookie, or expression may be set.|
 |`<Guardrails>.request[].azureContentSafety.policies.backendAuth.credentials[].location.header`|object|Read the credential from an HTTP header.|
@@ -9205,6 +9282,17 @@ These types are used by many fields. Fields of these types link here instead of 
 |`<Guardrails>.response[].webhook.target.policies.backendAuth.crossAppAccess.cache`|object|Response cache configuration. Defaults to an in-memory cache with 8192 entries and a 300s<br>TTL when the token endpoint omits `expires_in`. Set `maxEntries` to 0 to disable.|
 |`<Guardrails>.response[].webhook.target.policies.backendAuth.crossAppAccess.cache.maxEntries`|integer|Maximum number of token exchange responses to keep in the cache. Set to 0 to disable.|
 |`<Guardrails>.response[].webhook.target.policies.backendAuth.crossAppAccess.cache.defaultTtl`|string|TTL used when the token endpoint omits `expires_in`. Defaults to 300s.|
+|`<Guardrails>.response[].webhook.target.policies.backendAuth.oauthAuthorizationCode`|object|Act as the OAuth client of the backend, using tokens from `agentgateway oauth-login`<br>and refreshing them before they expire.|
+|`<Guardrails>.response[].webhook.target.policies.backendAuth.oauthAuthorizationCode.tokenFile`|string|Token file written by `agentgateway oauth-login`. It holds the client registration and<br>tokens, and is rewritten when the access token is refreshed. Keep it private.|
+|`<Guardrails>.response[].webhook.target.policies.backendAuth.oauthAuthorizationCode.authorizationLocation`|object|Where to place the access token in the backend request. Defaults to the<br>Authorization header with a "Bearer " prefix.<br>Exactly one of header, queryParameter, cookie, or expression may be set.|
+|`<Guardrails>.response[].webhook.target.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.header`|object|Read the credential from an HTTP header.|
+|`<Guardrails>.response[].webhook.target.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.header.name`|string|Header name containing the credential.|
+|`<Guardrails>.response[].webhook.target.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.header.prefix`|string|Prefix to remove from the header value before validation, such as `Bearer ` or `Basic `.|
+|`<Guardrails>.response[].webhook.target.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.queryParameter`|object|Read the credential from a URL query parameter.|
+|`<Guardrails>.response[].webhook.target.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.queryParameter.name`|string|Query parameter name containing the credential.|
+|`<Guardrails>.response[].webhook.target.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.cookie`|object|Read the credential from a request cookie.|
+|`<Guardrails>.response[].webhook.target.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.cookie.name`|string|Cookie name containing the credential.|
+|`<Guardrails>.response[].webhook.target.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.expression`|string|Read the credential from a CEL expression evaluated against the incoming request.<br>CEL expression that returns the credential string. This location can extract credentials but cannot insert them.|
 |`<Guardrails>.response[].webhook.target.policies.backendAuth.credentials`|[]object||
 |`<Guardrails>.response[].webhook.target.policies.backendAuth.credentials[].location`|object|Where the credential is inserted on the backend request.<br>Exactly one of header, queryParameter, cookie, or expression may be set.|
 |`<Guardrails>.response[].webhook.target.policies.backendAuth.credentials[].location.header`|object|Read the credential from an HTTP header.|
@@ -9495,6 +9583,17 @@ These types are used by many fields. Fields of these types link here instead of 
 |`<Guardrails>.response[].bedrockGuardrails.policies.backendAuth.crossAppAccess.cache`|object|Response cache configuration. Defaults to an in-memory cache with 8192 entries and a 300s<br>TTL when the token endpoint omits `expires_in`. Set `maxEntries` to 0 to disable.|
 |`<Guardrails>.response[].bedrockGuardrails.policies.backendAuth.crossAppAccess.cache.maxEntries`|integer|Maximum number of token exchange responses to keep in the cache. Set to 0 to disable.|
 |`<Guardrails>.response[].bedrockGuardrails.policies.backendAuth.crossAppAccess.cache.defaultTtl`|string|TTL used when the token endpoint omits `expires_in`. Defaults to 300s.|
+|`<Guardrails>.response[].bedrockGuardrails.policies.backendAuth.oauthAuthorizationCode`|object|Act as the OAuth client of the backend, using tokens from `agentgateway oauth-login`<br>and refreshing them before they expire.|
+|`<Guardrails>.response[].bedrockGuardrails.policies.backendAuth.oauthAuthorizationCode.tokenFile`|string|Token file written by `agentgateway oauth-login`. It holds the client registration and<br>tokens, and is rewritten when the access token is refreshed. Keep it private.|
+|`<Guardrails>.response[].bedrockGuardrails.policies.backendAuth.oauthAuthorizationCode.authorizationLocation`|object|Where to place the access token in the backend request. Defaults to the<br>Authorization header with a "Bearer " prefix.<br>Exactly one of header, queryParameter, cookie, or expression may be set.|
+|`<Guardrails>.response[].bedrockGuardrails.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.header`|object|Read the credential from an HTTP header.|
+|`<Guardrails>.response[].bedrockGuardrails.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.header.name`|string|Header name containing the credential.|
+|`<Guardrails>.response[].bedrockGuardrails.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.header.prefix`|string|Prefix to remove from the header value before validation, such as `Bearer ` or `Basic `.|
+|`<Guardrails>.response[].bedrockGuardrails.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.queryParameter`|object|Read the credential from a URL query parameter.|
+|`<Guardrails>.response[].bedrockGuardrails.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.queryParameter.name`|string|Query parameter name containing the credential.|
+|`<Guardrails>.response[].bedrockGuardrails.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.cookie`|object|Read the credential from a request cookie.|
+|`<Guardrails>.response[].bedrockGuardrails.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.cookie.name`|string|Cookie name containing the credential.|
+|`<Guardrails>.response[].bedrockGuardrails.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.expression`|string|Read the credential from a CEL expression evaluated against the incoming request.<br>CEL expression that returns the credential string. This location can extract credentials but cannot insert them.|
 |`<Guardrails>.response[].bedrockGuardrails.policies.backendAuth.credentials`|[]object||
 |`<Guardrails>.response[].bedrockGuardrails.policies.backendAuth.credentials[].location`|object|Where the credential is inserted on the backend request.<br>Exactly one of header, queryParameter, cookie, or expression may be set.|
 |`<Guardrails>.response[].bedrockGuardrails.policies.backendAuth.credentials[].location.header`|object|Read the credential from an HTTP header.|
@@ -9777,6 +9876,17 @@ These types are used by many fields. Fields of these types link here instead of 
 |`<Guardrails>.response[].googleModelArmor.policies.backendAuth.crossAppAccess.cache`|object|Response cache configuration. Defaults to an in-memory cache with 8192 entries and a 300s<br>TTL when the token endpoint omits `expires_in`. Set `maxEntries` to 0 to disable.|
 |`<Guardrails>.response[].googleModelArmor.policies.backendAuth.crossAppAccess.cache.maxEntries`|integer|Maximum number of token exchange responses to keep in the cache. Set to 0 to disable.|
 |`<Guardrails>.response[].googleModelArmor.policies.backendAuth.crossAppAccess.cache.defaultTtl`|string|TTL used when the token endpoint omits `expires_in`. Defaults to 300s.|
+|`<Guardrails>.response[].googleModelArmor.policies.backendAuth.oauthAuthorizationCode`|object|Act as the OAuth client of the backend, using tokens from `agentgateway oauth-login`<br>and refreshing them before they expire.|
+|`<Guardrails>.response[].googleModelArmor.policies.backendAuth.oauthAuthorizationCode.tokenFile`|string|Token file written by `agentgateway oauth-login`. It holds the client registration and<br>tokens, and is rewritten when the access token is refreshed. Keep it private.|
+|`<Guardrails>.response[].googleModelArmor.policies.backendAuth.oauthAuthorizationCode.authorizationLocation`|object|Where to place the access token in the backend request. Defaults to the<br>Authorization header with a "Bearer " prefix.<br>Exactly one of header, queryParameter, cookie, or expression may be set.|
+|`<Guardrails>.response[].googleModelArmor.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.header`|object|Read the credential from an HTTP header.|
+|`<Guardrails>.response[].googleModelArmor.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.header.name`|string|Header name containing the credential.|
+|`<Guardrails>.response[].googleModelArmor.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.header.prefix`|string|Prefix to remove from the header value before validation, such as `Bearer ` or `Basic `.|
+|`<Guardrails>.response[].googleModelArmor.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.queryParameter`|object|Read the credential from a URL query parameter.|
+|`<Guardrails>.response[].googleModelArmor.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.queryParameter.name`|string|Query parameter name containing the credential.|
+|`<Guardrails>.response[].googleModelArmor.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.cookie`|object|Read the credential from a request cookie.|
+|`<Guardrails>.response[].googleModelArmor.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.cookie.name`|string|Cookie name containing the credential.|
+|`<Guardrails>.response[].googleModelArmor.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.expression`|string|Read the credential from a CEL expression evaluated against the incoming request.<br>CEL expression that returns the credential string. This location can extract credentials but cannot insert them.|
 |`<Guardrails>.response[].googleModelArmor.policies.backendAuth.credentials`|[]object||
 |`<Guardrails>.response[].googleModelArmor.policies.backendAuth.credentials[].location`|object|Where the credential is inserted on the backend request.<br>Exactly one of header, queryParameter, cookie, or expression may be set.|
 |`<Guardrails>.response[].googleModelArmor.policies.backendAuth.credentials[].location.header`|object|Read the credential from an HTTP header.|
@@ -10057,6 +10167,17 @@ These types are used by many fields. Fields of these types link here instead of 
 |`<Guardrails>.response[].azureContentSafety.policies.backendAuth.crossAppAccess.cache`|object|Response cache configuration. Defaults to an in-memory cache with 8192 entries and a 300s<br>TTL when the token endpoint omits `expires_in`. Set `maxEntries` to 0 to disable.|
 |`<Guardrails>.response[].azureContentSafety.policies.backendAuth.crossAppAccess.cache.maxEntries`|integer|Maximum number of token exchange responses to keep in the cache. Set to 0 to disable.|
 |`<Guardrails>.response[].azureContentSafety.policies.backendAuth.crossAppAccess.cache.defaultTtl`|string|TTL used when the token endpoint omits `expires_in`. Defaults to 300s.|
+|`<Guardrails>.response[].azureContentSafety.policies.backendAuth.oauthAuthorizationCode`|object|Act as the OAuth client of the backend, using tokens from `agentgateway oauth-login`<br>and refreshing them before they expire.|
+|`<Guardrails>.response[].azureContentSafety.policies.backendAuth.oauthAuthorizationCode.tokenFile`|string|Token file written by `agentgateway oauth-login`. It holds the client registration and<br>tokens, and is rewritten when the access token is refreshed. Keep it private.|
+|`<Guardrails>.response[].azureContentSafety.policies.backendAuth.oauthAuthorizationCode.authorizationLocation`|object|Where to place the access token in the backend request. Defaults to the<br>Authorization header with a "Bearer " prefix.<br>Exactly one of header, queryParameter, cookie, or expression may be set.|
+|`<Guardrails>.response[].azureContentSafety.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.header`|object|Read the credential from an HTTP header.|
+|`<Guardrails>.response[].azureContentSafety.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.header.name`|string|Header name containing the credential.|
+|`<Guardrails>.response[].azureContentSafety.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.header.prefix`|string|Prefix to remove from the header value before validation, such as `Bearer ` or `Basic `.|
+|`<Guardrails>.response[].azureContentSafety.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.queryParameter`|object|Read the credential from a URL query parameter.|
+|`<Guardrails>.response[].azureContentSafety.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.queryParameter.name`|string|Query parameter name containing the credential.|
+|`<Guardrails>.response[].azureContentSafety.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.cookie`|object|Read the credential from a request cookie.|
+|`<Guardrails>.response[].azureContentSafety.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.cookie.name`|string|Cookie name containing the credential.|
+|`<Guardrails>.response[].azureContentSafety.policies.backendAuth.oauthAuthorizationCode.authorizationLocation.expression`|string|Read the credential from a CEL expression evaluated against the incoming request.<br>CEL expression that returns the credential string. This location can extract credentials but cannot insert them.|
 |`<Guardrails>.response[].azureContentSafety.policies.backendAuth.credentials`|[]object||
 |`<Guardrails>.response[].azureContentSafety.policies.backendAuth.credentials[].location`|object|Where the credential is inserted on the backend request.<br>Exactly one of header, queryParameter, cookie, or expression may be set.|
 |`<Guardrails>.response[].azureContentSafety.policies.backendAuth.credentials[].location.header`|object|Read the credential from an HTTP header.|

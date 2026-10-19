@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://agentgateway.dev/schema/config
+mcp:
+  port: 3000
+  targets:
+  - name: notion
+    mcp:
+      host: https://mcp.notion.com/mcp
+    policies:
+      backendAuth:
+        oauthAuthorizationCode:
+          # Written by `agentgateway oauth-login`; see README.md.
+          tokenFile: ./notion-tokens.json

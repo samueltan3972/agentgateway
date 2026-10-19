@@ -2392,6 +2392,10 @@ where
 				auth.validate_load().map_err(serde::de::Error::custom)?;
 				Ok(LocalBackendAuthKind::CrossAppAccess(auth))
 			},
+			LocalBackendAuthKind::OAuthAuthorizationCode(auth) => {
+				auth.validate_load().map_err(serde::de::Error::custom)?;
+				Ok(LocalBackendAuthKind::OAuthAuthorizationCode(auth))
+			},
 			auth => Ok(auth),
 		}
 	}
@@ -2496,6 +2500,9 @@ impl LocalBackendAuth {
 			Some(LocalBackendAuthKind::CrossAppAccess(auth)) => {
 				Some(BackendAuthKind::CrossAppAccess(auth))
 			},
+			Some(LocalBackendAuthKind::OAuthAuthorizationCode(auth)) => {
+				Some(BackendAuthKind::OAuthAuthorizationCode(auth))
+			},
 			None => None,
 		};
 		let mut credentials = Vec::with_capacity(self.credentials.len());
@@ -2582,6 +2589,10 @@ enum LocalBackendAuthKind {
 	/// Use Cross App Access (Identity Assertion / ID-JAG) to obtain a backend access token.
 	#[serde(rename = "crossAppAccess")]
 	CrossAppAccess(Box<crate::http::auth::CrossAppAccessAuth>),
+	/// Act as the OAuth client of the backend, using tokens from `agentgateway oauth-login`
+	/// and refreshing them before they expire.
+	#[serde(rename = "oauthAuthorizationCode")]
+	OAuthAuthorizationCode(Box<crate::http::auth::OAuthAuthorizationCodeAuth>),
 }
 
 #[apply(schema_de!)]

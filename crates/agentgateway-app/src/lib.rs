@@ -116,6 +116,38 @@ pub(crate) struct ImportArgs {
 	pub(crate) output: Option<PathBuf>,
 }
 
+#[derive(ClapArgs, Debug)]
+pub(crate) struct OAuthLoginArgs {
+	/// URL of the OAuth-protected backend, such as an MCP server endpoint.
+	#[arg(long, value_name = "url")]
+	pub(crate) resource: String,
+
+	/// Where to write the tokens; reference it from `backendAuth.oauthAuthorizationCode.tokenFile`.
+	#[arg(long, value_name = "file")]
+	pub(crate) token_file: PathBuf,
+
+	/// Authorization server issuer. Discovered from the resource when unset.
+	#[arg(long, value_name = "url")]
+	pub(crate) issuer: Option<String>,
+
+	/// Pre-registered client ID. Dynamic client registration is used when unset.
+	#[arg(long, value_name = "id")]
+	pub(crate) client_id: Option<String>,
+
+	/// Secret for a pre-registered confidential client. Prefer the
+	/// AGENTGATEWAY_OAUTH_CLIENT_SECRET environment variable, which stays out of the process list.
+	#[arg(long, value_name = "secret")]
+	pub(crate) client_secret: Option<String>,
+
+	/// Scope to request; repeat for several.
+	#[arg(long = "scope", value_name = "scope")]
+	pub(crate) scopes: Vec<String>,
+
+	/// Loopback port for the redirect URI (http://localhost:<port>/callback).
+	#[arg(long, default_value_t = 8976)]
+	pub(crate) port: u16,
+}
+
 #[derive(Subcommand, Debug)]
 enum Commands {
 	/// Run agentgateway as a subprocess and exec a command when ready.
@@ -125,6 +157,8 @@ enum Commands {
 	Import(ImportArgs),
 	/// Migrate deprecated fields in a local agentgateway configuration.
 	Migrate(MigrateArgs),
+	/// Log in once to an OAuth-protected backend and save tokens for `oauthAuthorizationCode` backend auth.
+	OauthLogin(OAuthLoginArgs),
 }
 
 #[derive(Parser, Debug)]
@@ -165,6 +199,7 @@ pub fn run() -> anyhow::Result<()> {
 		Some(Commands::Oneshot(oneshot)) => commands::oneshot::execute(oneshot),
 		Some(Commands::Import(import)) => commands::import::execute(import),
 		Some(Commands::Migrate(migrate)) => commands::migrate::execute(migrate),
+		Some(Commands::OauthLogin(login)) => commands::oauth_login::execute(login),
 		None => commands::run::execute(args.run),
 	}
 }

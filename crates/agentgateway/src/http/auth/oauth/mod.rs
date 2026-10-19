@@ -23,11 +23,13 @@ use crate::types::agent_xds::{
 use crate::types::proto::{ProtoError, agent as proto};
 use crate::{apply, cel, schema_enum};
 
+pub mod authorization_code;
 mod cache;
 pub(crate) mod client_auth;
 mod cross_app_access;
 mod transport;
 
+pub use authorization_code::OAuthAuthorizationCodeAuth;
 use cache::{InMemoryTokenCache, TokenCacheResult};
 use client_auth::sign_client_assertion;
 pub use client_auth::{OAuthClientAuth, OAuthClientAuthMethod, PrivateKeyJwt};

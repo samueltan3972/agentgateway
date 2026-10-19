@@ -1829,6 +1829,18 @@
               "required": [
                 "crossAppAccess"
               ]
+            },
+            {
+              "description": "Act as the OAuth client of the backend, using tokens from `agentgateway oauth-login`\nand refreshing them before they expire.",
+              "type": "object",
+              "properties": {
+                "oauthAuthorizationCode": {
+                  "$ref": "#/$defs/OAuthAuthorizationCodeAuth"
+                }
+              },
+              "required": [
+                "oauthAuthorizationCode"
+              ]
             }
           ],
           "required": [
@@ -2995,6 +3007,30 @@
         "source"
       ]
     },
+    "OAuthAuthorizationCodeAuth": {
+      "type": "object",
+      "properties": {
+        "tokenFile": {
+          "description": "Token file written by `agentgateway oauth-login`. It holds the client registration and\ntokens, and is rewritten when the access token is refreshed. Keep it private.",
+          "type": "string"
+        },
+        "authorizationLocation": {
+          "description": "Where to place the access token in the backend request. Defaults to the\nAuthorization header with a \"Bearer \" prefix.",
+          "$ref": "#/$defs/AuthorizationLocation",
+          "default": {
+            "header": {
+              "name": "authorization",
+              "prefix": "Bearer "
+            }
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "tokenFile",
+        "authorizationLocation"
+      ]
+    },
     "BackendAuthCredential": {
       "description": "An additional credential to inject on the backend request.",
       "type": "object",
@@ -3197,6 +3233,19 @@
           },
           "required": [
             "crossAppAccess"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "description": "Act as the OAuth client of the backend, using tokens from `agentgateway oauth-login`\nand refreshing them before they expire.",
+          "type": "object",
+          "properties": {
+            "oauthAuthorizationCode": {
+              "$ref": "#/$defs/OAuthAuthorizationCodeAuth"
+            }
+          },
+          "required": [
+            "oauthAuthorizationCode"
           ],
           "additionalProperties": false
         }
