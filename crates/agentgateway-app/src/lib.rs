@@ -139,6 +139,11 @@ pub(crate) struct OAuthLoginArgs {
 	#[arg(long, value_name = "secret")]
 	pub(crate) client_secret: Option<String>,
 
+	/// Token endpoint authentication for a confidential pre-registered client. Chosen from the
+	/// authorization server metadata when unset (client_secret_basic unless only post is offered).
+	#[arg(long, value_name = "method", value_parser = ["client_secret_basic", "client_secret_post"])]
+	pub(crate) client_auth_method: Option<String>,
+
 	/// Scope to request; repeat for several.
 	#[arg(long = "scope", value_name = "scope")]
 	pub(crate) scopes: Vec<String>,

@@ -14,6 +14,7 @@ pub(crate) fn execute(args: OAuthLoginArgs) -> anyhow::Result<()> {
 		client_secret: args
 			.client_secret
 			.or_else(|| std::env::var("AGENTGATEWAY_OAUTH_CLIENT_SECRET").ok()),
+		client_auth_method: args.client_auth_method,
 		scopes: args.scopes,
 		port: args.port,
 	}));

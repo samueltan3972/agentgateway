@@ -17,7 +17,9 @@ cargo run -- oauth-login \
 The command:
 
 1. discovers the authorization server from the resource's protected-resource
-   metadata (RFC 9728) and the server's metadata (RFC 8414);
+   metadata (RFC 9728): first the `resource_metadata` URL in the resource's
+   `401` challenge, then the well-known URLs. The server's own metadata (RFC 8414)
+   must name the same issuer;
 2. registers a client (RFC 7591), unless you pass `--client-id`;
 3. prints an authorization URL (authorization code + PKCE, with the RFC 8707
    `resource` parameter).
@@ -29,7 +31,9 @@ localhost page, copy the full URL from the address bar and paste it into the
 command. Alternatively forward the port: `ssh -L 8976:localhost:8976 server`.
 
 The token file holds the client registration, access token and refresh token,
-and is written with mode `0600`. Keep it private.
+and is written with mode `0600`. Keep it private. A `<token file>.lock` file next
+to it coordinates writers, so gateways and `oauth-login` sharing the file never
+overwrite each other's tokens.
 
 ### Run the gateway
 
@@ -48,8 +52,10 @@ token file with any rotated refresh token.
   that logged in. Put inbound authentication (`jwtAuth`, `mcpAuthentication`) and
   `mcpAuthorization` in front of it.
 * If the refresh token is revoked or expires, requests fail with a message to run
-  `oauth-login` again. Re-running it replaces the file; the gateway picks up the
-  new tokens without a restart.
+  `oauth-login` again. Re-running it replaces the file, and the gateway switches to
+  the new tokens on its next request, without a restart.
 * For a pre-registered client pass `--client-id` (and set
   `AGENTGATEWAY_OAUTH_CLIENT_SECRET` for a confidential client), and register
-  `http://localhost:<port>/callback` as its redirect URI.
+  `http://localhost:<port>/callback` as its redirect URI. A confidential client
+  authenticates with HTTP Basic unless the server only offers
+  `client_secret_post`; override with `--client-auth-method`.

@@ -32,6 +32,9 @@ use crate::proxy::httpproxy::PolicyClient;
 use crate::telemetry::metrics::{OutboundCallKind, OutboundCallSubtype};
 use crate::{apply, schema};
 
+pub const CLIENT_SECRET_BASIC: &str = "client_secret_basic";
+pub const CLIENT_SECRET_POST: &str = "client_secret_post";
+
 /// Refresh the access token this many seconds before it expires.
 const REFRESH_SKEW_SECS: u64 = 60;
 const TOKEN_RESPONSE_LIMIT: usize = 64 * 1024;
@@ -48,7 +51,34 @@ pub struct OAuthAuthorizationCodeAuth {
 	authorization_location: AuthorizationLocation,
 	#[serde(skip)]
 	#[cfg_attr(feature = "schema", schemars(skip))]
-	state: Arc<Mutex<Option<StoredTokens>>>,
+	state: Arc<Mutex<Option<(StoredTokens, FileVersion)>>>,
+}
+
+/// Identifies one version of the token file, so a replaced file invalidates the cache.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct FileVersion {
+	modified: Option<std::time::SystemTime>,
+	len: u64,
+	#[cfg(unix)]
+	inode: u64,
+}
+
+impl FileVersion {
+	// A stat is cheap enough to do synchronously on each request.
+	fn of(path: &Path) -> anyhow::Result<Self> {
+		let meta = std::fs::metadata(path).with_context(|| {
+			format!(
+				"reading oauth token file {}; run `agentgateway oauth-login` first",
+				path.display()
+			)
+		})?;
+		Ok(Self {
+			modified: meta.modified().ok(),
+			len: meta.len(),
+			#[cfg(unix)]
+			inode: std::os::unix::fs::MetadataExt::ino(&meta),
+		})
+	}
 }
 
 impl OAuthAuthorizationCodeAuth {
@@ -66,10 +96,18 @@ impl OAuthAuthorizationCodeAuth {
 		// Held across the refresh so concurrent requests share one refresh.
 		let mut state = self.state.lock().await;
 		let now = unix_now();
-		if let Some(tokens) = state.as_ref().filter(|t| t.is_fresh(now)) {
+		let version = FileVersion::of(&self.token_file).map_err(BackendAuthError::local)?;
+		if let Some((tokens, cached)) = state.as_ref()
+			&& *cached == version
+			&& tokens.is_fresh(now)
+		{
 			return Ok(tokens.access_token.clone());
 		}
-		// Re-read the file: a new `oauth-login` may have replaced it.
+		// The file lock keeps other gateways and `oauth-login` from writing while we refresh.
+		// Re-read under it: another process may have refreshed or logged in again.
+		let _lock = lock_token_file(&self.token_file)
+			.await
+			.map_err(BackendAuthError::local)?;
 		let mut tokens = read_token_file(&self.token_file)
 			.await
 			.map_err(BackendAuthError::local)?;
@@ -87,8 +125,9 @@ impl OAuthAuthorizationCodeAuth {
 				.map_err(BackendAuthError::local)?;
 			trace!("refreshed oauth authorization-code access token");
 		}
+		let version = FileVersion::of(&self.token_file).map_err(BackendAuthError::local)?;
 		let token = tokens.access_token.clone();
-		*state = Some(tokens);
+		*state = Some((tokens, version));
 		Ok(token)
 	}
 }
@@ -185,15 +224,16 @@ impl StoredTokens {
 			&self.client_secret,
 			self.token_endpoint_auth_method.as_deref(),
 		) {
-			(Some(secret), Some("client_secret_basic")) => {
+			(Some(secret), Some(CLIENT_SECRET_POST)) => {
+				form.push(("client_id", self.client_id.clone()));
+				form.push(("client_secret", secret.clone()));
+			},
+			// RFC 7591 §2: client_secret_basic is the default when the method is unset.
+			(Some(secret), _) => {
 				basic = Some(encode_client_secret_basic(
 					&self.client_id,
 					&SecretString::from(secret.clone()),
 				));
-			},
-			(Some(secret), _) => {
-				form.push(("client_id", self.client_id.clone()));
-				form.push(("client_secret", secret.clone()));
 			},
 			(None, _) => form.push(("client_id", self.client_id.clone())),
 		}
@@ -237,18 +277,10 @@ impl TokenRequest {
 		Ok(builder.body(Body::from(self.body()?))?)
 	}
 
-	async fn send(self, http: &reqwest::Client) -> anyhow::Result<TokenResponse> {
-		let mut req = http
-			.post(&self.endpoint)
-			.header(CONTENT_TYPE, "application/x-www-form-urlencoded")
-			.header(ACCEPT, "application/json")
-			.body(self.body()?);
-		if let Some(basic) = &self.basic {
-			req = req.header(AUTHORIZATION, format!("Basic {basic}"));
-		}
-		let resp = req.send().await.context("token request failed")?;
-		let status = resp.status();
-		let body = resp.bytes().await?;
+	async fn send(self, client: &crate::client::Client) -> anyhow::Result<TokenResponse> {
+		let (status, _, body) = call(client, self.into_http()?)
+			.await
+			.context("token request failed")?;
 		parse_token_response(status, &body)
 	}
 }
@@ -297,22 +329,57 @@ async fn read_token_file(path: &Path) -> anyhow::Result<StoredTokens> {
 
 // ponytail: plaintext JSON readable only by the owner (0600), like gh's hosts.yml; encrypt at
 // rest with a key from a file or env var if the host is shared.
+// Callers hold `lock_token_file`.
 async fn write_token_file(path: &Path, tokens: &StoredTokens) -> anyhow::Result<()> {
-	let tmp = path.with_extension("tmp");
-	let _ = tokio::fs::remove_file(&tmp).await;
-	let mut opts = tokio::fs::OpenOptions::new();
-	opts.write(true).create_new(true);
-	#[cfg(unix)]
-	opts.mode(0o600);
-	let mut file = opts
-		.open(&tmp)
-		.await
-		.with_context(|| format!("writing oauth token file {}", tmp.display()))?;
-	file.write_all(&serde_json::to_vec_pretty(tokens)?).await?;
-	file.sync_all().await?;
-	tokio::fs::rename(&tmp, path)
-		.await
-		.with_context(|| format!("replacing oauth token file {}", path.display()))
+	// A unique name in the same directory, so the rename is atomic and never touches other files.
+	let tmp = sibling(path, &format!(".{}.tmp", random_token(8)));
+	let result = async {
+		let mut opts = tokio::fs::OpenOptions::new();
+		opts.write(true).create_new(true);
+		#[cfg(unix)]
+		opts.mode(0o600);
+		let mut file = opts
+			.open(&tmp)
+			.await
+			.with_context(|| format!("writing oauth token file {}", tmp.display()))?;
+		file.write_all(&serde_json::to_vec_pretty(tokens)?).await?;
+		file.sync_all().await?;
+		tokio::fs::rename(&tmp, path)
+			.await
+			.with_context(|| format!("replacing oauth token file {}", path.display()))
+	}
+	.await;
+	if result.is_err() {
+		let _ = tokio::fs::remove_file(&tmp).await;
+	}
+	result
+}
+
+/// Takes an exclusive lock on `<token file>.lock`, shared by every process using the file.
+/// Released when the returned file is dropped.
+async fn lock_token_file(path: &Path) -> anyhow::Result<std::fs::File> {
+	let lock_path = sibling(path, ".lock");
+	tokio::task::spawn_blocking(move || {
+		let mut opts = std::fs::OpenOptions::new();
+		opts.create(true).truncate(false).write(true);
+		#[cfg(unix)]
+		std::os::unix::fs::OpenOptionsExt::mode(&mut opts, 0o600);
+		let file = opts
+			.open(&lock_path)
+			.with_context(|| format!("opening lock file {}", lock_path.display()))?;
+		file
+			.lock()
+			.with_context(|| format!("locking {}", lock_path.display()))?;
+		Ok(file)
+	})
+	.await?
+}
+
+/// `path` with `suffix` appended to its file name.
+fn sibling(path: &Path, suffix: &str) -> PathBuf {
+	let mut name = path.as_os_str().to_owned();
+	name.push(suffix);
+	PathBuf::from(name)
 }
 
 fn unix_now() -> u64 {
@@ -336,6 +403,9 @@ pub struct LoginOptions {
 	/// Pre-registered client; dynamic client registration is used when unset.
 	pub client_id: Option<String>,
 	pub client_secret: Option<String>,
+	/// `client_secret_basic` or `client_secret_post` for a pre-registered confidential client;
+	/// chosen from the server metadata when unset.
+	pub client_auth_method: Option<String>,
 	pub scopes: Vec<String>,
 	/// Loopback port for the redirect URI.
 	pub port: u16,
@@ -349,12 +419,31 @@ struct ProtectedResourceMetadata {
 
 #[derive(Deserialize)]
 struct AuthorizationServerMetadata {
+	issuer: String,
 	authorization_endpoint: String,
 	token_endpoint: String,
 	#[serde(default)]
 	registration_endpoint: Option<String>,
 	#[serde(default)]
 	code_challenge_methods_supported: Option<Vec<String>>,
+	#[serde(default)]
+	token_endpoint_auth_methods_supported: Option<Vec<String>>,
+}
+
+impl AuthorizationServerMetadata {
+	/// Client authentication for a confidential client that did not name one. RFC 8414 §2:
+	/// an absent list means client_secret_basic.
+	fn default_client_auth_method(&self) -> &'static str {
+		match &self.token_endpoint_auth_methods_supported {
+			Some(methods)
+				if !methods.iter().any(|m| m == CLIENT_SECRET_BASIC)
+					&& methods.iter().any(|m| m == CLIENT_SECRET_POST) =>
+			{
+				CLIENT_SECRET_POST
+			},
+			_ => CLIENT_SECRET_BASIC,
+		}
+	}
 }
 
 #[derive(Deserialize)]
@@ -367,12 +456,12 @@ struct RegistrationResponse {
 }
 
 pub async fn login(opts: LoginOptions) -> anyhow::Result<()> {
-	let http = reqwest::Client::new();
+	let client = login_client();
 	let issuer = match opts.issuer.clone() {
 		Some(issuer) => issuer,
-		None => discover_issuer(&http, &opts.resource).await?,
+		None => discover_issuer(&client, &opts.resource).await?,
 	};
-	let meta = discover_authorization_server(&http, &issuer).await?;
+	let meta = discover_authorization_server(&client, &issuer).await?;
 	if let Some(methods) = &meta.code_challenge_methods_supported
 		&& !methods.iter().any(|m| m == "S256")
 	{
@@ -383,10 +472,15 @@ pub async fn login(opts: LoginOptions) -> anyhow::Result<()> {
 	let registration = match opts.client_id.clone() {
 		Some(client_id) => RegistrationResponse {
 			client_id,
+			token_endpoint_auth_method: opts.client_secret.as_ref().map(|_| {
+				opts
+					.client_auth_method
+					.clone()
+					.unwrap_or_else(|| meta.default_client_auth_method().to_string())
+			}),
 			client_secret: opts.client_secret.clone(),
-			token_endpoint_auth_method: None,
 		},
-		None => register_client(&http, &meta, &redirect_uri).await?,
+		None => register_client(&client, &meta, &redirect_uri).await?,
 	};
 	let mut tokens = StoredTokens {
 		token_endpoint: meta.token_endpoint.clone(),
@@ -417,14 +511,45 @@ pub async fn login(opts: LoginOptions) -> anyhow::Result<()> {
 		("code_verifier", verifier),
 		("resource", opts.resource.clone()),
 	]);
-	let resp = req.send(&http).await?;
+	let resp = req.send(&client).await?;
 	tokens.update(resp, unix_now());
+	let _lock = lock_token_file(&opts.token_file).await?;
 	write_token_file(&opts.token_file, &tokens).await?;
 	eprintln!(
 		"Login complete. Tokens saved to {}",
 		opts.token_file.display()
 	);
 	Ok(())
+}
+
+/// The gateway's own HTTP client, so the login follows the same TLS policy as the proxy.
+fn login_client() -> crate::client::Client {
+	let (resolver_cfg, resolver_opts) =
+		hickory_resolver::system_conf::read_system_conf().unwrap_or_default();
+	crate::client::Client::new(
+		&crate::client::Config {
+			resolver_cfg,
+			resolver_opts,
+		},
+		None,
+		crate::BackendConfig::default(),
+		None,
+	)
+}
+
+/// Sends `req` (with an absolute URI) and buffers the response.
+async fn call(
+	client: &crate::client::Client,
+	mut req: ::http::Request<Body>,
+) -> anyhow::Result<(StatusCode, ::http::HeaderMap, bytes::Bytes)> {
+	req
+		.extensions_mut()
+		.insert(BackendRequestTimeout(TOKEN_ENDPOINT_TIMEOUT));
+	let resp = client.simple_call(req).await?;
+	let status = resp.status();
+	let headers = resp.headers().clone();
+	let body = crate::http::read_body_with_limit(resp.into_body(), TOKEN_RESPONSE_LIMIT).await?;
+	Ok((status, headers, body))
 }
 
 fn authorization_url(
@@ -458,7 +583,7 @@ fn authorization_url(
 	Ok(url)
 }
 
-/// Candidate RFC 9728 metadata URLs: path-inserted first, then the origin root.
+/// Well-known RFC 9728 metadata URLs: path-inserted first, then the origin root.
 fn protected_resource_metadata_urls(resource: &str) -> anyhow::Result<Vec<String>> {
 	let url =
 		url::Url::parse(resource).with_context(|| format!("invalid resource URL {resource}"))?;
@@ -472,9 +597,51 @@ fn protected_resource_metadata_urls(resource: &str) -> anyhow::Result<Vec<String
 	})
 }
 
-async fn discover_issuer(http: &reqwest::Client, resource: &str) -> anyhow::Result<String> {
-	for url in protected_resource_metadata_urls(resource)? {
-		if let Some(meta) = get_json::<ProtectedResourceMetadata>(http, &url).await?
+/// The `resource_metadata` parameter of a `WWW-Authenticate` challenge (RFC 9728 §5.1).
+fn resource_metadata_param(challenge: &str) -> Option<String> {
+	let lower = challenge.to_ascii_lowercase();
+	let start = lower.find("resource_metadata=")? + "resource_metadata=".len();
+	let rest = &challenge[start..];
+	let value = match rest.strip_prefix('"') {
+		Some(quoted) => &quoted[..quoted.find('"')?],
+		None => rest.split(|c: char| c == ',' || c.is_whitespace()).next()?,
+	};
+	(!value.is_empty()).then(|| value.to_string())
+}
+
+/// Metadata URL advertised in the resource's 401 challenge, as the MCP authorization spec
+/// requires clients to use first.
+async fn advertised_resource_metadata(
+	client: &crate::client::Client,
+	resource: &str,
+) -> anyhow::Result<Option<String>> {
+	let req = ::http::Request::builder()
+		.method(Method::GET)
+		.uri(resource)
+		.header(ACCEPT, "application/json, text/event-stream")
+		.body(Body::empty())?;
+	let (status, headers, _) = call(client, req)
+		.await
+		.with_context(|| format!("fetching {resource}"))?;
+	if status != StatusCode::UNAUTHORIZED {
+		return Ok(None);
+	}
+	Ok(
+		headers
+			.get_all(::http::header::WWW_AUTHENTICATE)
+			.iter()
+			.filter_map(|v| v.to_str().ok())
+			.find_map(resource_metadata_param),
+	)
+}
+
+async fn discover_issuer(client: &crate::client::Client, resource: &str) -> anyhow::Result<String> {
+	let advertised = advertised_resource_metadata(client, resource).await?;
+	for url in advertised
+		.into_iter()
+		.chain(protected_resource_metadata_urls(resource)?)
+	{
+		if let Some(meta) = get_json::<ProtectedResourceMetadata>(client, &url).await?
 			&& let Some(issuer) = meta.authorization_servers.into_iter().next()
 		{
 			return Ok(issuer);
@@ -486,14 +653,21 @@ async fn discover_issuer(http: &reqwest::Client, resource: &str) -> anyhow::Resu
 }
 
 async fn discover_authorization_server(
-	http: &reqwest::Client,
+	client: &crate::client::Client,
 	issuer: &str,
 ) -> anyhow::Result<AuthorizationServerMetadata> {
 	for url in [
 		authorization_server_metadata_url(issuer),
 		openid_configuration_metadata_url(issuer),
 	] {
-		if let Some(meta) = get_json(http, &url).await? {
+		if let Some(meta) = get_json::<AuthorizationServerMetadata>(client, &url).await? {
+			// RFC 8414 §3.3: metadata for any other issuer must not be used.
+			if meta.issuer != issuer {
+				bail!(
+					"metadata at {url} is for issuer {:?}, expected {issuer:?}",
+					meta.issuer
+				);
+			}
 			return Ok(meta);
 		}
 	}
@@ -502,26 +676,27 @@ async fn discover_authorization_server(
 
 /// GETs JSON, returning `None` for a non-success status.
 async fn get_json<T: serde::de::DeserializeOwned>(
-	http: &reqwest::Client,
+	client: &crate::client::Client,
 	url: &str,
 ) -> anyhow::Result<Option<T>> {
-	let resp = http
-		.get(url)
+	let req = ::http::Request::builder()
+		.method(Method::GET)
+		.uri(url)
 		.header(ACCEPT, "application/json")
-		.send()
+		.body(Body::empty())?;
+	let (status, _, body) = call(client, req)
 		.await
 		.with_context(|| format!("fetching {url}"))?;
-	if !resp.status().is_success() {
+	if !status.is_success() {
 		return Ok(None);
 	}
-	let body = resp.bytes().await?;
 	Ok(Some(
 		serde_json::from_slice(&body).with_context(|| format!("parsing {url}"))?,
 	))
 }
 
 async fn register_client(
-	http: &reqwest::Client,
+	client: &crate::client::Client,
 	meta: &AuthorizationServerMetadata,
 	redirect_uri: &str,
 ) -> anyhow::Result<RegistrationResponse> {
@@ -535,16 +710,15 @@ async fn register_client(
 		"response_types": ["code"],
 		"token_endpoint_auth_method": "none",
 	});
-	let resp = http
-		.post(endpoint)
+	let req = ::http::Request::builder()
+		.method(Method::POST)
+		.uri(endpoint)
 		.header(CONTENT_TYPE, "application/json")
 		.header(ACCEPT, "application/json")
-		.body(body.to_string())
-		.send()
+		.body(Body::from(body.to_string()))?;
+	let (status, _, body) = call(client, req)
 		.await
 		.context("client registration request failed")?;
-	let status = resp.status();
-	let body = resp.bytes().await?;
 	if !status.is_success() {
 		bail!(
 			"client registration returned {status}: {}",
@@ -792,6 +966,168 @@ mod tests {
 		let saved = read_token_file(&token_file).await.unwrap();
 		assert_eq!(saved.access_token, "fresh");
 		assert_eq!(saved.refresh_token.as_deref(), Some("refresh-2"));
+	}
+
+	#[test]
+	fn client_secret_defaults_to_basic_and_honours_post() {
+		let secret = |method: Option<&str>| StoredTokens {
+			client_secret: Some("s3cret".into()),
+			token_endpoint_auth_method: method.map(Into::into),
+			..tokens()
+		};
+		// RFC 7591 default when the registration names no method.
+		let req = secret(None).refresh_request().unwrap();
+		assert!(req.basic.is_some() && !req.body().unwrap().contains("s3cret"));
+		let req = secret(Some(CLIENT_SECRET_POST)).refresh_request().unwrap();
+		assert!(req.basic.is_none() && req.body().unwrap().contains("client_secret=s3cret"));
+	}
+
+	#[test]
+	fn metadata_default_client_auth_method() {
+		let meta = |methods: Option<&[&str]>| AuthorizationServerMetadata {
+			issuer: "https://as.example.com".into(),
+			authorization_endpoint: String::new(),
+			token_endpoint: String::new(),
+			registration_endpoint: None,
+			code_challenge_methods_supported: None,
+			token_endpoint_auth_methods_supported: methods
+				.map(|m| m.iter().map(|s| s.to_string()).collect()),
+		};
+		assert_eq!(meta(None).default_client_auth_method(), CLIENT_SECRET_BASIC);
+		assert_eq!(
+			meta(Some(&[CLIENT_SECRET_POST, CLIENT_SECRET_BASIC])).default_client_auth_method(),
+			CLIENT_SECRET_BASIC
+		);
+		assert_eq!(
+			meta(Some(&["none", CLIENT_SECRET_POST])).default_client_auth_method(),
+			CLIENT_SECRET_POST
+		);
+	}
+
+	#[test]
+	fn parses_resource_metadata_from_challenge() {
+		assert_eq!(
+			resource_metadata_param(
+				r#"Bearer error="invalid_token", resource_metadata="https://x.example/.well-known/oauth-protected-resource/mcp""#
+			)
+			.as_deref(),
+			Some("https://x.example/.well-known/oauth-protected-resource/mcp")
+		);
+		assert_eq!(
+			resource_metadata_param("Bearer Resource_Metadata=https://x.example/m, realm=x").as_deref(),
+			Some("https://x.example/m")
+		);
+		assert_eq!(resource_metadata_param(r#"Bearer realm="x""#), None);
+	}
+
+	#[tokio::test]
+	async fn rejects_metadata_for_another_issuer() {
+		use wiremock::matchers::{method, path};
+		use wiremock::{Mock, MockServer, ResponseTemplate};
+
+		let mock = MockServer::start().await;
+		Mock::given(method("GET"))
+			.and(path("/.well-known/oauth-authorization-server"))
+			.respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+				"issuer": "https://evil.example",
+				"authorization_endpoint": "https://evil.example/authorize",
+				"token_endpoint": "https://evil.example/token",
+			})))
+			.mount(&mock)
+			.await;
+		let err = discover_authorization_server(&login_client(), &mock.uri())
+			.await
+			.err()
+			.expect("mismatched issuer must be rejected")
+			.to_string();
+		assert!(err.contains("evil.example"), "got: {err}");
+	}
+
+	#[tokio::test]
+	async fn discovery_prefers_advertised_resource_metadata() {
+		use wiremock::matchers::{method, path};
+		use wiremock::{Mock, MockServer, ResponseTemplate};
+
+		let mock = MockServer::start().await;
+		let advertised = format!("{}/custom/prm", mock.uri());
+		Mock::given(method("GET"))
+			.and(path("/mcp"))
+			.respond_with(ResponseTemplate::new(401).insert_header(
+				"www-authenticate",
+				format!(r#"Bearer resource_metadata="{advertised}""#).as_str(),
+			))
+			.mount(&mock)
+			.await;
+		Mock::given(method("GET"))
+			.and(path("/custom/prm"))
+			.respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+				"authorization_servers": ["https://as.example.com"],
+			})))
+			.mount(&mock)
+			.await;
+		let issuer = discover_issuer(&login_client(), &format!("{}/mcp", mock.uri()))
+			.await
+			.unwrap();
+		assert_eq!(issuer, "https://as.example.com");
+	}
+
+	#[tokio::test]
+	async fn replaced_token_file_invalidates_cache() {
+		let dir = tempfile::tempdir().unwrap();
+		let token_file = dir.path().join("tokens.json");
+		let fresh = |access: &str| StoredTokens {
+			access_token: access.into(),
+			// No expiry: only a file change can replace it.
+			expires_at: None,
+			..tokens()
+		};
+		write_token_file(&token_file, &fresh("first"))
+			.await
+			.unwrap();
+		let auth: OAuthAuthorizationCodeAuth =
+			serde_json::from_value(serde_json::json!({ "tokenFile": token_file })).unwrap();
+		let client = PolicyClient::new(
+			crate::test_helpers::proxymock::setup_proxy_test("{}")
+				.unwrap()
+				.inputs(),
+		);
+		assert_eq!(auth.access_token(&client).await.unwrap(), "first");
+		// Same length on purpose: the rename gives a new inode even if mtime and size match.
+		write_token_file(&token_file, &fresh("secnd"))
+			.await
+			.unwrap();
+		assert_eq!(auth.access_token(&client).await.unwrap(), "secnd");
+	}
+
+	#[tokio::test]
+	async fn writes_leave_unrelated_files_alone() {
+		let dir = tempfile::tempdir().unwrap();
+		let token_file = dir.path().join("tokens.json");
+		let unrelated = dir.path().join("tokens.tmp");
+		std::fs::write(&unrelated, "keep").unwrap();
+		write_token_file(&token_file, &tokens()).await.unwrap();
+		assert_eq!(std::fs::read_to_string(&unrelated).unwrap(), "keep");
+		let mut names: Vec<_> = std::fs::read_dir(dir.path())
+			.unwrap()
+			.map(|e| e.unwrap().file_name().into_string().unwrap())
+			.collect();
+		names.sort();
+		assert_eq!(names, ["tokens.json", "tokens.tmp"]);
+	}
+
+	#[tokio::test]
+	async fn token_file_lock_is_exclusive() {
+		let dir = tempfile::tempdir().unwrap();
+		let token_file = dir.path().join("tokens.json");
+		let held = lock_token_file(&token_file).await.unwrap();
+		let waiting = tokio::spawn({
+			let token_file = token_file.clone();
+			async move { lock_token_file(&token_file).await.map(|_| ()) }
+		});
+		tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+		assert!(!waiting.is_finished(), "second lock must wait");
+		drop(held);
+		waiting.await.unwrap().unwrap();
 	}
 
 	#[tokio::test]
